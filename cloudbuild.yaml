@@ -66,6 +66,6 @@ options:
 substitutions:
   _REGION: us-central1
   _AR_REPO: app-images
-  _IMAGE_NAME: mke-rag-query-service
-  _SERVICE_NAME: mke-rag-query-service
+  _IMAGE_NAME: mke-property-rag-query-service
+  _SERVICE_NAME: mke-property-rag-query-service
   _SERVICE_ACCOUNT:
