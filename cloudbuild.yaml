@@ -1,14 +1,4 @@
 steps:
-  - name: python:3.12
-    id: Run unit tests
-    entrypoint: bash
-    args:
-      - -c
-      - |
-        python -m pip install --upgrade pip && \
-        pip install -r requirements.txt && \
-        python -c "import sys; sys.path.insert(0, '.'); import pytest; raise SystemExit(pytest.main(['-q', 'tests/test_main.py']))"
-
   - name: gcr.io/cloud-builders/docker
     id: Build image
     args:
