@@ -23,7 +23,8 @@ uvicorn app.main:app --reload
 
 `GET /query?q=<text>&top_k=5&include_embedding=false`
 
-Returns the matching documents ordered by distance. `GET /health` is a liveness probe.
+Returns a Gemini-generated answer grounded in the matching chunks and a `document_ids`
+list identifying the chunks used. `GET /health` is a liveness probe.
 
 ## Expected BigQuery table
 

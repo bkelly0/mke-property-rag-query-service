@@ -9,5 +9,8 @@ class SearchResult(BaseModel):
 
 class QueryResponse(BaseModel):
     query: str = Field(..., description="The original query string")
-    embedding: list[float] = Field(..., description="Embedding vector generated for the query")
-    results: list[SearchResult] = Field(default_factory=list)
+    response: str = Field(..., description="Answer generated from the matching chunks")
+    document_ids: list[str] = Field(
+        default_factory=list,
+        description="Document IDs for the chunks used to generate the answer",
+    )

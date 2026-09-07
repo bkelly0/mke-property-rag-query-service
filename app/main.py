@@ -8,7 +8,8 @@ from google.cloud.logging_v2.handlers import StructuredLogHandler
 from app.bigquery_search import vector_search
 from app.config import get_settings
 from app.embeddings import embed_query
-from app.models import QueryResponse, SearchResult
+from app.generation import generate_answer
+from app.models import QueryResponse
 
 
 def build_logger() -> logging.Logger:
@@ -56,8 +57,14 @@ def query(
         logger.exception("BigQuery vector search failed")
         raise HTTPException(status_code=502, detail="Vector search failed")
 
+    try:
+        answer = generate_answer(q, rows)
+    except (APIError, RuntimeError):
+        logger.exception("Failed to generate answer")
+        raise HTTPException(status_code=502, detail="Answer generation failed")
+
     return QueryResponse(
         query=q,
-        embedding=vector,
-        results=[SearchResult(**row) for row in rows],
+        response=answer,
+        document_ids=[str(row["id"]) for row in rows if row.get("id") is not None],
     )
