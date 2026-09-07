@@ -12,7 +12,7 @@ class Settings(BaseSettings):
 
     embedding_model: str = Field(default="text-embedding-005", validation_alias="EMBEDDING_MODEL")
     embedding_dimensionality: int = Field(default=768, validation_alias="EMBEDDING_DIMENSIONALITY")
-    generation_model: str = Field(default="gemini-1.5-flash", validation_alias="GENERATION_MODEL")
+    generation_model: str = Field(default="gemini-2.5-flash", validation_alias="GENERATION_MODEL")
 
     bq_dataset: str = Field(default="mke_rag_demo", validation_alias="BQ_DATASET")
     bq_table: str = Field(default="mke_rag_chunks", validation_alias="BQ_TABLE")

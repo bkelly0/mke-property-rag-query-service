@@ -30,11 +30,11 @@ def generate_answer(query: str, chunks: list[dict[str, Any]]) -> str:
         f"User question: {query}\n\n"
         f"Document chunks:\n{context}"
     )
-    response = _get_client().models.generate_content(
+    chat = _get_client().chats.create(
         model=settings.generation_model,
-        contents=prompt,
         config=GenerateContentConfig(temperature=0.2),
     )
+    response = chat.send_message(prompt)
     if not response.text:
         raise RuntimeError("Generation API returned no response text")
     return response.text.strip()
