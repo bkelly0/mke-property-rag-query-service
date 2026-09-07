@@ -58,5 +58,6 @@ def query(
 
     return QueryResponse(
         query=q,
+        embedding=vector,
         results=[SearchResult(**row) for row in rows],
     )
