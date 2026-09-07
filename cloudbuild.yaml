@@ -41,6 +41,8 @@ steps:
       - --allow-unauthenticated
       - --service-account
       - ${_SERVICE_ACCOUNT}
+      - --set-env-vars
+      - PROJECT_ID=$PROJECT_ID,LOCATION=${_REGION}
       - --min-instances=0
       - --max-instances=1
       - --port

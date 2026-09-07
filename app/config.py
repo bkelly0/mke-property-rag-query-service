@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     gcp_project_id: str = Field(validation_alias="PROJECT_ID")
-    gcp_location: str = Field(default="us-central1", validation_alias="GCP_LOCATION")
+    gcp_location: str = Field(default="us-central1", validation_alias="LOCATION")
 
     embedding_model: str = Field(default="text-embedding-005", validation_alias="EMBEDDING_MODEL")
     embedding_dimensionality: int = Field(default=768, validation_alias="EMBEDDING_DIMENSIONALITY")
