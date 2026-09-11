@@ -21,7 +21,9 @@ uvicorn app.main:app --reload
 
 ## Endpoint
 
-`GET /query?q=<text>&top_k=5&include_embedding=false`
+`GET /query?q=<text>&taxkeys=1234567890&taxkeys=9876543210`
+
+Each `taxkeys` value must contain only digits and be no longer than 10 characters.
 
 Returns a Gemini-generated answer grounded in the matching chunks and a `document_ids`
 list identifying the chunks used. `GET /health` is a liveness probe.

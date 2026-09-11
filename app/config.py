@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     bq_id_column: str = Field(default="doc_id", validation_alias="BQ_ID_COLUMN")
     bq_distance_type: str = Field(default="COSINE", validation_alias="BQ_DISTANCE_TYPE")
 
-    default_top_k: int = Field(default=5, validation_alias="DEFAULT_TOP_K")
+    default_top_k: int = Field(default=7, validation_alias="DEFAULT_TOP_K")
 
 
 @lru_cache(maxsize=1)

@@ -1,9 +1,11 @@
 import logging
+from typing import Annotated
 
 from fastapi import FastAPI, HTTPException, Query
 from google.api_core.exceptions import GoogleAPIError
 from google.genai.errors import APIError
 from google.cloud.logging_v2.handlers import StructuredLogHandler
+from pydantic import StringConstraints
 
 from app.bigquery_search import vector_search
 from app.config import get_settings
@@ -31,6 +33,8 @@ app = FastAPI(
     version="0.1.0",
 )
 
+TaxKey = Annotated[str, StringConstraints(pattern=r"^\d+$", max_length=10)]
+
 
 @app.get("/health")
 def health() -> dict[str, str]:
@@ -40,10 +44,10 @@ def health() -> dict[str, str]:
 @app.get("/query", response_model=QueryResponse)
 def query(
     q: str = Query(..., min_length=1, max_length=8192, description="Query string to search for"),
-    top_k: int | None = Query(None, ge=1, le=100, description="Number of results to return"),
+    taxkeys: list[TaxKey] | None = Query(None, description="Tax keys to include in the search"),
 ) -> QueryResponse:
     settings = get_settings()
-    limit = top_k or settings.default_top_k
+    limit = settings.default_top_k
 
     try:
         vector = embed_query(q)
