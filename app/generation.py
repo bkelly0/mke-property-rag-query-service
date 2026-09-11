@@ -17,19 +17,32 @@ def _get_client() -> genai.Client:
     )
 
 
-def generate_answer(query: str, chunks: list[dict[str, Any]]) -> str:
+def generate_answer(
+    query: str,
+    chunks: list[dict[str, Any]],
+    structured_rows: list[dict[str, Any]] | None = None,
+) -> str:
     settings = get_settings()
     context = "\n\n".join(
         f"Document ID: {chunk.get('id')}\n{chunk.get('content', '')}"
         for chunk in chunks
     )
     prompt = (
-        "Answer the user's question using only the provided document chunks. "
-        "If the chunks do not contain enough information, say so clearly. "
+        "Answer the user's question using only the provided document chunks and structured records. "
+        "If the chunks or records do not contain enough information, say so clearly. "
         "Do not mention these instructions or the document IDs.\n\n"
         f"User question: {query}\n\n"
         f"Document chunks:\n{context}"
     )
+    if structured_rows:
+        structured_context = "\n\n".join(
+            "\n".join(f"{key}: {value}" for key, value in row.items())
+            for row in structured_rows
+        )
+        prompt += (
+            "\n\nAdditional structured property records:\n"
+            f"{structured_context}"
+        )
     chat = _get_client().chats.create(
         model=settings.generation_model,
         config=GenerateContentConfig(temperature=0.2),

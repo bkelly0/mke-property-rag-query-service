@@ -7,7 +7,7 @@ from google.genai.errors import APIError
 from google.cloud.logging_v2.handlers import StructuredLogHandler
 from pydantic import StringConstraints
 
-from app.bigquery_search import vector_search
+from app.bigquery_search import structured_mprop_search, vector_search
 from app.config import get_settings
 from app.embeddings import embed_query
 from app.generation import generate_answer
@@ -61,8 +61,16 @@ def query(
         logger.exception("BigQuery vector search failed")
         raise HTTPException(status_code=502, detail="Vector search failed")
 
+    structured_rows = []
+    if taxkeys:
+        try:
+            structured_rows = structured_mprop_search(taxkeys)
+        except GoogleAPIError:
+            logger.exception("BigQuery structured mprop search failed")
+            raise HTTPException(status_code=502, detail="Structured property search failed")
+
     try:
-        answer = generate_answer(q, rows)
+        answer = generate_answer(q, rows, structured_rows)
     except (APIError, RuntimeError):
         logger.exception("Failed to generate answer")
         raise HTTPException(status_code=502, detail="Answer generation failed")
