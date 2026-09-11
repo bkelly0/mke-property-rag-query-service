@@ -2,6 +2,7 @@ import logging
 from typing import Annotated
 
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
 from google.api_core.exceptions import GoogleAPIError
 from google.genai.errors import APIError
 from google.cloud.logging_v2.handlers import StructuredLogHandler
@@ -26,11 +27,22 @@ def build_logger() -> logging.Logger:
 
     return logger
 
-logger = build_logger();
+logger = build_logger()
 app = FastAPI(
     title="MKE RAG Query Service",
     description="Embeds a query with Vertex AI and runs a BigQuery vector search.",
     version="0.1.0",
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 TaxKey = Annotated[str, StringConstraints(pattern=r"^\d+$", max_length=10)]
