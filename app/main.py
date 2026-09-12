@@ -11,12 +11,12 @@ from pydantic import StringConstraints
 from app.bigquery_search import structured_mprop_search, vector_search
 from app.config import get_settings
 from app.embeddings import embed_query
-from app.generation import generate_answer
+from app.generation import generate_answer, generate_hyde_document
 from app.models import QueryResponse
 
 
 def build_logger() -> logging.Logger:
-    logger = logging.getLogger("rag-event-handler")
+    logger = logging.getLogger("mke-rag-query-service")
     logger.setLevel(logging.INFO)
     logger.propagate = False
 
@@ -61,8 +61,22 @@ def query(
     settings = get_settings()
     limit = settings.default_top_k
 
+    structured_rows = []
+    if taxkeys:
+        try:
+            structured_rows = structured_mprop_search(taxkeys)
+        except GoogleAPIError:
+            logger.exception("BigQuery structured mprop search failed")
+            raise HTTPException(status_code=502, detail="Structured property search failed")
+
     try:
-        vector = embed_query(q)
+        hyde_document = generate_hyde_document(q, structured_rows)
+    except (APIError, RuntimeError):
+        logger.exception("Failed to generate HyDE document")
+        raise HTTPException(status_code=502, detail="HyDE generation failed")
+
+    try:
+        vector = embed_query(hyde_document)
     except (APIError, RuntimeError):
         logger.exception("Failed to generate query embedding")
         raise HTTPException(status_code=502, detail="Embedding generation failed")
@@ -72,14 +86,6 @@ def query(
     except GoogleAPIError:
         logger.exception("BigQuery vector search failed")
         raise HTTPException(status_code=502, detail="Vector search failed")
-
-    structured_rows = []
-    if taxkeys:
-        try:
-            structured_rows = structured_mprop_search(taxkeys)
-        except GoogleAPIError:
-            logger.exception("BigQuery structured mprop search failed")
-            raise HTTPException(status_code=502, detail="Structured property search failed")
 
     try:
         answer = generate_answer(q, rows, structured_rows)

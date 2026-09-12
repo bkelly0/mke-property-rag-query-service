@@ -1,3 +1,5 @@
+import json
+import logging
 from functools import lru_cache
 from typing import Any
 
@@ -5,6 +7,8 @@ from google import genai
 from google.genai.types import GenerateContentConfig
 
 from app.config import get_settings
+
+logger = logging.getLogger("mke-rag-query-service")
 
 
 @lru_cache
@@ -15,6 +19,31 @@ def _get_client() -> genai.Client:
         project=settings.gcp_project_id,
         location=settings.gcp_location,
     )
+
+
+def generate_hyde_document(
+    user_prompt: str,
+    property_data: list[dict[str, Any]] | None = None,
+) -> str:
+    """Generate a hypothetical municipal code/zoning/property excerpt (HyDE) to embed for retrieval."""
+    settings = get_settings()
+    hyde_prompt = f"""
+Given this property profile:
+{json.dumps(property_data or [], default=str)}
+
+Write a hypothetical excerpt from the municipal code, zoning text, or property data that answers this question:
+"{user_prompt}"
+"""
+    response = _get_client().models.generate_content(
+        model=settings.generation_model,
+        contents=hyde_prompt,
+        config=GenerateContentConfig(temperature=0.2),
+    )
+    if not response.text:
+        raise RuntimeError("HyDE generation API returned no response text")
+    hyde_document = response.text.strip()
+    logger.info("HyDE document generated", extra={"hyde_document": hyde_document})
+    return hyde_document
 
 
 def generate_answer(
