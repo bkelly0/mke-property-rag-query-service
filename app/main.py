@@ -96,5 +96,5 @@ def query(
     return QueryResponse(
         query=q,
         response=answer,
-        document_ids=[str(row["id"]) for row in rows if row.get("id") is not None],
+        document_ids=set([str(row["id"]) for row in rows if row.get("id") is not None]),
     )

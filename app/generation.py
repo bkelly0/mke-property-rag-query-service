@@ -42,7 +42,7 @@ Write a hypothetical excerpt from the municipal code, zoning text, or property d
     if not response.text:
         raise RuntimeError("HyDE generation API returned no response text")
     hyde_document = response.text.strip()
-    logger.info("HyDE document generated", extra={"hyde_document": hyde_document})
+    logger.info("HyDE document generated: %s", hyde_document)    
     return hyde_document
 
 
