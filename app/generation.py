@@ -31,8 +31,9 @@ def generate_hyde_document(
 Given this property profile:
 {json.dumps(property_data or [], default=str)}
 
-Write a hypothetical excerpt from the municipal code, zoning text, or property data that answers this question:
+Write a hypothetical excerpt from the municipal code, zoning text, or property data that answers th question:
 "{user_prompt}"
+If the question is regarding data availabile in the property profiles, reduce that data down to include only the taxkey and releveant fields.
 """
     response = _get_client().models.generate_content(
         model=settings.generation_model,
