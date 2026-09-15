@@ -23,7 +23,7 @@ def generate_route(
     user_prompt: str,
     property_data: list[dict[str, Any]] | None = None,
 ) -> RoutingDecision:
-    prompt = """
+    prompt = f"""
 ou are a routing classifier for a municipal-property research service.
 
 Return exactly one routing type. Classify the USER QUESTION, not these instructions.
