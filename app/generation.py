@@ -8,11 +8,7 @@ from google.genai.types import GenerateContentConfig
 from app.config import get_settings
 from app.models import HydeOrAnswer
 
-
-
 logger = logging.getLogger("mke-rag-query-service")
-
-
 
 @lru_cache
 def _get_client() -> genai.Client:

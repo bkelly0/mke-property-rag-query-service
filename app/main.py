@@ -11,7 +11,7 @@ from pydantic import StringConstraints
 from app.bigquery_search import structured_mprop_search, vector_search
 from app.config import get_settings
 from app.embeddings import embed_query
-from app.generation import generate_answer, generate_hyde_document
+from app.generation import generate_answer, generate_answer_or_hyde
 from app.models import QueryResponse
 
 
@@ -70,13 +70,21 @@ def query(
             raise HTTPException(status_code=502, detail="Structured property search failed")
 
     try:
-        hyde_document = generate_hyde_document(q, structured_rows)
+        answer_or_hyde = generate_answer_or_hyde(q, structured_rows)
     except (APIError, RuntimeError):
-        logger.exception("Failed to generate HyDE document")
+        logger.exception("Failed to generate answer or HyDE document")
         raise HTTPException(status_code=502, detail="HyDE generation failed")
 
+    if answer_or_hyde.answer:
+        logger.info("The question can be answered using property data without vector search.")
+        return QueryResponse(
+            query=q,
+            response=answer_or_hyde.answer,
+            document_ids=[],
+        )
+
     try:
-        vector = embed_query(hyde_document)
+        vector = embed_query(answer_or_hyde.hyde)
     except (APIError, RuntimeError):
         logger.exception("Failed to generate query embedding")
         raise HTTPException(status_code=502, detail="Embedding generation failed")
