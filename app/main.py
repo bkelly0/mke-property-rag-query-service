@@ -117,15 +117,6 @@ def query(
                 raise HTTPException(status_code=502, detail="Answer generation failed")
             pass
 
-        case RoutingType.STRUCTURED_DATA:
-            # Answer from selected_properties
-            try:
-                answer = generate_answer(q, rows, selected_properties)
-            except (APIError, RuntimeError):
-                logger.exception("Failed to generate answer")
-                raise HTTPException(status_code=502, detail="Answer generation failed")
-            pass
-
         case RoutingType.VECTOR_SEARCH:
             # put user query strait into vector search
             try:
