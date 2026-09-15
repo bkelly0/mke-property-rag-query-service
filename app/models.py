@@ -14,3 +14,7 @@ class QueryResponse(BaseModel):
         default_factory=list,
         description="Document IDs for the chunks used to generate the answer",
     )
+
+class HydeOrAnswer(BaseModel):
+    answer: str = Field(description="This field contains the generated answer if it can be answered only with the provided property data.")
+    hyde: str = Field(description="A hypothetical excerpt (HyDE) to be used in vector search if additional documents are required to answer the question.")

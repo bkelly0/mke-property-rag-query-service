@@ -1,4 +1,3 @@
-import json
 import logging
 from functools import lru_cache
 from typing import Any
@@ -7,8 +6,12 @@ from google import genai
 from google.genai.types import GenerateContentConfig
 
 from app.config import get_settings
+from app.models import HydeOrAnswer
+
+
 
 logger = logging.getLogger("mke-rag-query-service")
+
 
 
 @lru_cache
@@ -20,31 +23,39 @@ def _get_client() -> genai.Client:
         location=settings.gcp_location,
     )
 
-
-def generate_hyde_document(
+def generate_answer_or_hyde(
     user_prompt: str,
     property_data: list[dict[str, Any]] | None = None,
-) -> str:
-    """Generate a hypothetical municipal code/zoning/property excerpt (HyDE) to embed for retrieval."""
-    settings = get_settings()
-    hyde_prompt = f"""
-Given this property profile:
-{json.dumps(property_data or [], default=str)}
+) -> HydeOrAnswer:
+    
+    prompt = f"""
+You are a domain expert assistant specializing in municipal real estate and zoning.
 
-Write a hypothetical excerpt from the municipal code, zoning text, or property data that answers th question:
-"{user_prompt}"
-If the question is regarding data availabile in the property profiles, reduce that data down to include only the taxkey and releveant fields.
-"""
+Property Data:
+{property_data}
+
+User Question: "{user_prompt}"
+
+Task:
+1. Determine if the "Property Data" contains enough specific information to fully answer the user's question.
+2. If the loaded property data IS SUFFICIENT, write an answer to the question in the "answer" field.
+3. If the loaded property data IS NOT SUFFICIENT,  (e.g., the question requires broader municipal zoning codes, city ordinances, or general regulatory context), write a detailed, hypothetical passage that directly answers the question to be used for vector retrieval in the "hyde" field.
+    """
+    settings = get_settings()
     response = _get_client().models.generate_content(
         model=settings.generation_model,
-        contents=hyde_prompt,
-        config=GenerateContentConfig(temperature=0.2),
+        contents=prompt,
+        config=GenerateContentConfig(
+            temperature=0.2,
+            response_mime_type="application/json",
+            response_schema=HydeOrAnswer,
+        ),
     )
-    if not response.text:
-        raise RuntimeError("HyDE generation API returned no response text")
-    hyde_document = response.text.strip()
-    logger.info("HyDE document generated: %s", hyde_document)    
-    return hyde_document
+
+    if not response.parsed:
+        raise RuntimeError("Answer or Hyde generation failed.")
+
+    return response.parsed
 
 
 def generate_answer(
