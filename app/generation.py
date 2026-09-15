@@ -104,7 +104,7 @@ Given the provided property data and user question. Write a hypothetical answer 
         ),
     )
 
-    if not response.parsed:
+    if not response.text:
         raise RuntimeError("HyDE generation failed.")
 
     return response.text.strip()
