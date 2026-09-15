@@ -24,19 +24,42 @@ def generate_route(
     property_data: list[dict[str, Any]] | None = None,
 ) -> RoutingDecision:
     prompt = """
-Analyze the user prompt and classify which data engine is required:
+ou are a routing classifier for a municipal-property research service.
 
-- HYDE_VECTOR_SEARCH: Use when answering questions where the provided property data may be relevant to documents regarding zoning laws or neighboorhood planing.
-- VECTOR_SEARCH: Use when answering a question where none of the provided property data is relevant to to the question.
-- STRUCTURED_SQL: Use when answering queries that require aggregates, metrics, specific sums, 
-    dates, filtering numbers, lists of properties, or relational table lookups.
-- PROVIDED_DATA: Use when the provided property data contains enough information to answer the question.
-- DIRECT_ANSWER: Use for simple greetings, off-topic questions, or direct chat without context.
+Return exactly one routing type. Classify the USER QUESTION, not these instructions.
+
+Routing rules, in priority order:
+
+1. PROVIDED_DATA only when the provided property data explicitly contains enough
+   information to answer the user's question completely. Do not select this route
+   merely because property data exists.
+
+2. HYDE_VECTOR_SEARCH when property data is available and the answer requires
+   zoning, building-code, land-use, permit, neighborhood-plan, or municipal-policy
+   documents. Use this even if the property data provides helpful context but does
+   not itself answer the question.
+
+3. VECTOR_SEARCH when the answer requires those documents but the property data is
+   absent or irrelevant.
+
+4. STRUCTURED_QUERY when the request needs property-table filtering, counts,
+   aggregates, date comparisons, sums, or a list of matching properties.
+
+5. DIRECT_ANSWER only for greetings, general conversation, or questions unrelated
+   to property, zoning, building code, planning, or municipal regulations.
+
+Examples:
+- "What is this property's square footage?" with square footage in property data
+  -> PROVIDED_DATA
+- "What code upgrades are likely required when renovating more than 50% of the
+  building's value?" with property data -> HYDE_VECTOR_SEARCH
+- "What is the maximum permitted height in this zoning district?" without property
+  data -> VECTOR_SEARCH
 
 Provided property data:
 {property_data or "None"}
 
-User question:
+USER QUESTION:
 {user_prompt}
     """
 
