@@ -6,7 +6,7 @@ from google import genai
 from google.genai.types import GenerateContentConfig
 
 from app.config import get_settings
-from app.models import HydeOrAnswer
+from app.models import HydeOrAnswer, RoutingType, RoutingDecision
 
 logger = logging.getLogger("mke-rag-query-service")
 
@@ -19,10 +19,42 @@ def _get_client() -> genai.Client:
         location=settings.gcp_location,
     )
 
-def generate_answer_or_hyde(
+def generate_route(
     user_prompt: str,
     property_data: list[dict[str, Any]] | None = None,
-) -> HydeOrAnswer:
+) -> RoutingDecision:
+    prompt = """
+    Analyze the user prompt and classify which data engine is required:
+
+    - HYDE_VECTOR_SEARCH: Use when answering questions where the provided property data may be relevant to documents regarding zoning laws or neighboorhood planing.
+    - VECTOR_SEARCH: Use when answering a question where none of the provided property data is relevant to to the question.
+    - STRUCTURED_SQL: Use when answering queries that require aggregates, metrics, specific sums, 
+      dates, filtering numbers, lists of properties, or relational table lookups.
+    - PROVIDED_DATA: Use when the provided property data contains enough information to answer the question.
+    - DIRECT_ANSWER: Use for simple greetings, off-topic questions, or direct chat without context.
+    """
+
+    settings = get_settings()
+    response = _get_client().models.generate_content(
+        model=settings.generation_model,
+        contents=prompt,
+        config=GenerateContentConfig(
+            temperature=0.2,
+            response_mime_type="application/json",
+            response_schema=RoutingDecision,
+        ),
+    )
+
+    if not response.parsed:
+        raise RuntimeError("Answer or Hyde generation failed.")
+
+    return response.parsed
+    
+
+def generate_hyde(
+    user_prompt: str,
+    property_data: list[dict[str, Any]] | None = None,
+) -> str:
     
     prompt = f"""
 You are a domain expert assistant specializing in municipal real estate and zoning.
@@ -32,10 +64,7 @@ Property Data:
 
 User Question: "{user_prompt}"
 
-Task:
-1. Determine if the "Property Data" contains enough specific information to fully answer the user's question.
-2. If the loaded property data IS SUFFICIENT, write an answer to the question in the "answer" field.
-3. If the loaded property data IS NOT SUFFICIENT,  (e.g., the question requires broader municipal zoning codes, city ordinances, or general regulatory context), write a detailed, hypothetical passage that directly answers the question to be used for vector retrieval in the "hyde" field.
+Given the provided property data and user question. Write a hypothetical answer similar to what may be found in zoning or neighborhood planning documents to be used as a HyDE vector search.
     """
     settings = get_settings()
     response = _get_client().models.generate_content(
@@ -43,15 +72,13 @@ Task:
         contents=prompt,
         config=GenerateContentConfig(
             temperature=0.2,
-            response_mime_type="application/json",
-            response_schema=HydeOrAnswer,
         ),
     )
 
     if not response.parsed:
-        raise RuntimeError("Answer or Hyde generation failed.")
+        raise RuntimeError("HyDE generation failed.")
 
-    return response.parsed
+    return response.text.strip()
 
 
 def generate_answer(

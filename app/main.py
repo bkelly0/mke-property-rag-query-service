@@ -11,8 +11,8 @@ from pydantic import StringConstraints
 from app.bigquery_search import structured_mprop_search, vector_search
 from app.config import get_settings
 from app.embeddings import embed_query
-from app.generation import generate_answer, generate_answer_or_hyde
-from app.models import QueryResponse
+from app.generation import generate_route, generate_answer, generate_hyde
+from app.models import QueryResponse, RoutingDecision, RoutingType
 
 
 def build_logger() -> logging.Logger:
@@ -61,50 +61,107 @@ def query(
     settings = get_settings()
     limit = settings.default_top_k
 
-    structured_rows = []
+    selected_properties = []
     if taxkeys:
         try:
-            structured_rows = structured_mprop_search(taxkeys)
+            selected_properties = structured_mprop_search(taxkeys)
         except GoogleAPIError:
             logger.exception("BigQuery structured mprop search failed")
             raise HTTPException(status_code=502, detail="Structured property search failed")
 
+
     try:
-        answer_or_hyde = generate_answer_or_hyde(q, structured_rows)
+        routing_decision = generate_route(q, selected_properties)
     except (APIError, RuntimeError):
-        logger.exception("Failed to generate answer or HyDE document")
+        logger.exception("Could not route user query")
         raise HTTPException(status_code=502, detail="HyDE generation failed")
 
-    if answer_or_hyde.answer:
-        logger.info("The question can be answered using property data without vector search.")
-        return QueryResponse(
-            query=q,
-            response=answer_or_hyde.answer,
-            document_ids=[],
-        )
+    answer = ""
+    match routing_decision.routing_type:
+        case RoutingType.HYDE_VECTOR_SEARCH:
+            # Generate HyDE, embed it, then vector search
+            try:
+                hyde = generate_hyde(q, selected_properties)
+            except (APIError, RuntimeError):
+                logger.exception("Failed to generate answer or HyDE document")
+                raise HTTPException(status_code=502, detail="HyDE generation failed")
 
-    logger.info(f"Generated HyDE document {answer_or_hyde.hyde}")
+            try:
+                vector = embed_query(hyde)
+            except (APIError, RuntimeError):
+                logger.exception("Failed to generate query embedding")
+                raise HTTPException(status_code=502, detail="Embedding generation failed")
 
-    try:
-        vector = embed_query(answer_or_hyde.hyde)
-    except (APIError, RuntimeError):
-        logger.exception("Failed to generate query embedding")
-        raise HTTPException(status_code=502, detail="Embedding generation failed")
+            try:
+                rows = vector_search(vector, limit)
+            except GoogleAPIError:
+                logger.exception("BigQuery vector search failed")
+                raise HTTPException(status_code=502, detail="Vector search failed")
 
-    try:
-        rows = vector_search(vector, limit)
-    except GoogleAPIError:
-        logger.exception("BigQuery vector search failed")
-        raise HTTPException(status_code=502, detail="Vector search failed")
+            try:
+                answer = generate_answer(q, rows, [])
+            except (APIError, RuntimeError):
+                logger.exception("Failed to generate answer")
+                raise HTTPException(status_code=502, detail="Answer generation failed")
 
-    try:
-        answer = generate_answer(q, rows, structured_rows)
-    except (APIError, RuntimeError):
-        logger.exception("Failed to generate answer")
-        raise HTTPException(status_code=502, detail="Answer generation failed")
+            pass
+
+        case RoutingType.STRUCTURED_QUERY:
+            pass
+
+        case RoutingType.PROVIDED_DATA:
+            try:
+                answer = generate_answer(q, [], selected_properties)
+            except (APIError, RuntimeError):
+                logger.exception("Failed to generate answer")
+                raise HTTPException(status_code=502, detail="Answer generation failed")
+            pass
+
+        case RoutingType.STRUCTURED_DATA:
+            # Answer from selected_properties
+            try:
+                answer = generate_answer(q, rows, selected_properties)
+            except (APIError, RuntimeError):
+                logger.exception("Failed to generate answer")
+                raise HTTPException(status_code=502, detail="Answer generation failed")
+            pass
+
+        case RoutingType.VECTOR_SEARCH:
+            # put user query strait into vector search
+            try:
+                vector = embed_query(q)
+            except (APIError, RuntimeError):
+                logger.exception("Failed to generate query embedding")
+                raise HTTPException(status_code=502, detail="Embedding generation failed")
+
+            try:
+                rows = vector_search(vector, limit)
+            except GoogleAPIError:
+                logger.exception("BigQuery vector search failed")
+                raise HTTPException(status_code=502, detail="Vector search failed")
+
+            try:
+                answer = generate_answer(q, rows, [])
+            except (APIError, RuntimeError):
+                logger.exception("Failed to generate answer")
+                raise HTTPException(status_code=502, detail="Answer generation failed")
+            pass
+
+        case RoutingType.DIRECT_ANSWER:
+            try:
+                answer = generate_answer(q, [], [])
+            except (APIError, RuntimeError):
+                logger.exception("Failed to generate answer")
+                raise HTTPException(status_code=502, detail="Answer generation failed")
+            pass
+
+        case _:
+            raise HTTPException(status_code=500, detail="Unknown routing type")
+
 
     return QueryResponse(
         query=q,
         response=answer,
         document_ids=set([str(row["id"]) for row in rows if row.get("id") is not None]),
+        routing=routing_decision,
     )
