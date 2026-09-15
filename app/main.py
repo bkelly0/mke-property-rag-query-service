@@ -83,6 +83,8 @@ def query(
             document_ids=[],
         )
 
+    logger.info(f"Generated HyDE document {answer_or_hyde.hyde}")
+
     try:
         vector = embed_query(answer_or_hyde.hyde)
     except (APIError, RuntimeError):
