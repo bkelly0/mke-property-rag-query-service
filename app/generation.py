@@ -24,14 +24,20 @@ def generate_route(
     property_data: list[dict[str, Any]] | None = None,
 ) -> RoutingDecision:
     prompt = """
-    Analyze the user prompt and classify which data engine is required:
+Analyze the user prompt and classify which data engine is required:
 
-    - HYDE_VECTOR_SEARCH: Use when answering questions where the provided property data may be relevant to documents regarding zoning laws or neighboorhood planing.
-    - VECTOR_SEARCH: Use when answering a question where none of the provided property data is relevant to to the question.
-    - STRUCTURED_SQL: Use when answering queries that require aggregates, metrics, specific sums, 
-      dates, filtering numbers, lists of properties, or relational table lookups.
-    - PROVIDED_DATA: Use when the provided property data contains enough information to answer the question.
-    - DIRECT_ANSWER: Use for simple greetings, off-topic questions, or direct chat without context.
+- HYDE_VECTOR_SEARCH: Use when answering questions where the provided property data may be relevant to documents regarding zoning laws or neighboorhood planing.
+- VECTOR_SEARCH: Use when answering a question where none of the provided property data is relevant to to the question.
+- STRUCTURED_SQL: Use when answering queries that require aggregates, metrics, specific sums, 
+    dates, filtering numbers, lists of properties, or relational table lookups.
+- PROVIDED_DATA: Use when the provided property data contains enough information to answer the question.
+- DIRECT_ANSWER: Use for simple greetings, off-topic questions, or direct chat without context.
+
+Provided property data:
+{property_data or "None"}
+
+User question:
+{user_prompt}
     """
 
     settings = get_settings()
