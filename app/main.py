@@ -77,6 +77,7 @@ def query(
         raise HTTPException(status_code=502, detail="HyDE generation failed")
 
     answer = ""
+    rows = []
     match routing_decision.routing_type:
         case RoutingType.HYDE_VECTOR_SEARCH:
             # Generate HyDE, embed it, then vector search
