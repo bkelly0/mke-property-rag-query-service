@@ -107,7 +107,13 @@ def query(
                 raise HTTPException(status_code=502, detail="Query execution failed")
 
             try:
-                answer = generate_answer(q, [], mprop_rows)
+                answer = generate_answer(
+                    q,
+                    [],
+                    mprop_rows,
+                    structured_query=query,
+                    structured_parameters=params,
+                )
             except (APIError, RuntimeError):
                 logger.exception("Failed to generate answer")
                 raise HTTPException(status_code=502, detail="Answer generation failed")

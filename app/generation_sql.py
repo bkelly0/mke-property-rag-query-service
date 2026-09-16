@@ -1,9 +1,9 @@
 from typing import Any
 
-from google import genai
 from google.genai.types import GenerateContentConfig
 
 from app.config import get_settings
+from app.genai_client import get_genai_client
 from app.models import PropertyQueryPlan
 
 from app.logger import logger
@@ -72,12 +72,44 @@ Available relationships:
 - property_location: neighborhood names
 - exemption_type: exemption type descriptions
 
+Field-to-relationship rules:
+
+- neighborhood requires the property_location relationship and must use field
+  "neighborhood".
+- building_type_desc requires building_type.
+- convey_type_desc requires conveyance_type.
+- assessment_class_desc requires assessment_class.
+- land_use_description and land_use_category_description require land_use.
+- zoning_district_name requires zoning_district.
+- current_excemption_type_desc requires exemption_type.
+
+When a question mentions a neighborhood, use a filter like:
+{"field": "neighborhood", "operator": "contains", "value": "Avenues West"}
+
+Do not use "property_location" as a field name. It is a relationship name.
+
 Choose required_relationships only when a requested field requires it.
 
 Return a JSON PropertyQueryPlan. Use only the available field names. Use filters
 with field, operator, and value keys. Allowed operators are =, !=, <, <=, >, >=,
 and contains. Do not generate SQL.
 Avoid returning more than 100 rows.
+
+Use aggregates for one or more aggregate expressions. Each aggregate must contain
+function, field, and alias. The function must be count, min, max, avg, or sum.
+For count, omit field or set it to null to count rows. For all other functions,
+field must be an allowed field name. Every alias must be unique, descriptive,
+snake_case, and different from generic names such as count, value, result, or f0.
+The same function may be used on different fields; create a separate aggregate
+entry and alias for each field. If select fields and aggregates are both present,
+the select fields are grouping fields.
+
+Example:
+{"select": ["zoning"], "aggregates": [
+    {"function": "count", "field": null, "alias": "property_count"},
+    {"function": "avg", "field": "building_area", "alias": "average_building_area"},
+    {"function": "avg", "field": "lot_area", "alias": "average_lot_area"}
+]}
 """
 
 ALLOWED_FIELDS = {
@@ -188,20 +220,11 @@ _ALLOWED_AGGREGATES = {"count", "min", "max", "avg", "sum"}
 _BASE_TABLE = "`mke_rag_demo.mprop_master` m"
 
 
-def _get_client() -> genai.Client:
-    settings = get_settings()
-    return genai.Client(
-        vertexai=True,
-        project=settings.gcp_project_id,
-        location=settings.gcp_location,
-    )
-
-
 def generate_property_query_plan(user_prompt: str) -> PropertyQueryPlan:
     logger.debug("generating property query plan...")
 
     settings = get_settings()
-    response = _get_client().models.generate_content(
+    response = get_genai_client().models.generate_content(
         model=settings.generation_model,
         contents=f"{PROPERTY_QUERY_PROMPT}\n\nUser question:\n{user_prompt}",
         config=GenerateContentConfig(
@@ -221,12 +244,27 @@ def build_property_query(plan: PropertyQueryPlan) -> tuple[str, dict[str, Any]]:
     """Validate a model-produced plan and compile it into parameterized BigQuery SQL."""
     logger.debug("Building property query...")
 
-    if plan.aggregate and plan.aggregate not in _ALLOWED_AGGREGATES:
-        raise ValueError(f"Unsupported aggregate: {plan.aggregate}")
-    if not plan.aggregate and not plan.select:
-        raise ValueError("A query without an aggregate must select at least one field")
+    if not plan.aggregates and not plan.select:
+        raise ValueError("A query must select at least one field or aggregate")
 
-    referenced_fields = [*plan.select, *(filter_["field"] for filter_ in plan.filters)]
+    aliases = [aggregate.alias for aggregate in plan.aggregates]
+    if len(aliases) != len(set(aliases)):
+        raise ValueError("Aggregate aliases must be unique")
+
+    for filter_ in plan.filters:
+        if filter_.field not in ALLOWED_FIELDS:
+            raise ValueError(f"Unsupported filter field: {filter_.field!r}")
+
+    aggregate_fields = [
+        aggregate.field
+        for aggregate in plan.aggregates
+        if aggregate.field is not None
+    ]
+    referenced_fields = [
+        *plan.select,
+        *aggregate_fields,
+        *(filter_.field for filter_ in plan.filters),
+    ]
     if plan.order_by:
         referenced_fields.append(plan.order_by)
 
@@ -241,34 +279,33 @@ def build_property_query(plan: PropertyQueryPlan) -> tuple[str, dict[str, Any]]:
     }
 
     select_expressions = [f"{ALLOWED_FIELDS[field]} AS {field}" for field in plan.select]
-    if plan.aggregate:
-        if plan.aggregate == "count":
-            select_expressions = ["COUNT(*) AS count"]
-        elif len(plan.select) != 1:
-            raise ValueError("min, max, avg, and sum require exactly one selected field")
+    for aggregate in plan.aggregates:
+        if aggregate.function == "count":
+            if aggregate.field is None:
+                expression = "*"
+            else:
+                expression = ALLOWED_FIELDS[aggregate.field]
+        elif aggregate.field is None:
+            raise ValueError(f"{aggregate.function} requires a field")
         else:
-            field = plan.select[0]
-            select_expressions = [f"{plan.aggregate.upper()}({ALLOWED_FIELDS[field]}) AS {field}"]
+            expression = ALLOWED_FIELDS[aggregate.field]
+        select_expressions.append(
+            f"{aggregate.function.upper()}({expression}) AS {aggregate.alias}"
+        )
 
     parameters: dict[str, Any] = {}
     where_clauses = []
     for index, filter_ in enumerate(plan.filters):
-        if set(filter_) != {"field", "operator", "value"}:
-            raise ValueError("Each filter must contain field, operator, and value")
-        field = filter_["field"]
-        operator = filter_["operator"]
-        value = filter_["value"]
-        if not isinstance(field, str) or field not in ALLOWED_FIELDS:
-            raise ValueError(f"Unsupported filter field: {field!r}")
-        if operator not in _ALLOWED_OPERATORS:
-            raise ValueError(f"Unsupported filter operator: {operator!r}")
-        if not isinstance(value, (str, int, float, bool)):
-            raise ValueError("Filter values must be strings, numbers, or booleans")
+        field = filter_.field
+        operator = filter_.operator
+        value = filter_.value
 
         parameter_name = f"filter_{index}"
         expression = ALLOWED_FIELDS[field]
         if operator == "contains":
-            where_clauses.append(f"{expression} LIKE @{parameter_name}")
+            where_clauses.append(
+                f"LOWER({expression}) LIKE LOWER(@{parameter_name})"
+            )
             parameters[parameter_name] = f"%{value}%"
         else:
             where_clauses.append(f"{expression} {operator} @{parameter_name}")
@@ -282,7 +319,9 @@ def build_property_query(plan: PropertyQueryPlan) -> tuple[str, dict[str, Any]]:
     if plan.order_by:
         direction = plan.order_direction or "ASC"
         sql += f"\nORDER BY {ALLOWED_FIELDS[plan.order_by]} {direction}"
-    if not plan.aggregate:
+    if plan.aggregates and plan.select:
+        sql += "\nGROUP BY " + ", ".join(ALLOWED_FIELDS[field] for field in plan.select)
+    if not plan.aggregates:
         sql += "\nLIMIT @limit"
         parameters["limit"] = plan.limit
 

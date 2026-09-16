@@ -1,23 +1,12 @@
-import logging
-from functools import lru_cache
 from typing import Any
 
-from google import genai
 from google.genai.types import GenerateContentConfig
 
 from app.config import get_settings
+from app.genai_client import get_genai_client
 from app.models import HydeOrAnswer, RoutingType, RoutingDecision
 from app.logger import logger
 
-
-@lru_cache
-def _get_client() -> genai.Client:
-    settings = get_settings()
-    return genai.Client(
-        vertexai=True,
-        project=settings.gcp_project_id,
-        location=settings.gcp_location,
-    )
 
 def generate_route(
     user_prompt: str,
@@ -64,7 +53,7 @@ USER QUESTION:
     """
 
     settings = get_settings()
-    response = _get_client().models.generate_content(
+    response = get_genai_client().models.generate_content(
         model=settings.generation_model,
         contents=prompt,
         config=GenerateContentConfig(
@@ -98,7 +87,7 @@ User Question: "{user_prompt}"
 Given the provided property data and user question. Write a hypothetical answer similar to what may be found in zoning or neighborhood planning documents to be used as a HyDE vector search.
     """
     settings = get_settings()
-    response = _get_client().models.generate_content(
+    response = get_genai_client().models.generate_content(
         model=settings.generation_model,
         contents=prompt,
         config=GenerateContentConfig(
@@ -116,6 +105,8 @@ def generate_answer(
     query: str,
     chunks: list[dict[str, Any]],
     structured_rows: list[dict[str, Any]] | None = None,
+    structured_query: str | None = None,
+    structured_parameters: dict[str, Any] | None = None,
 ) -> str:
     settings = get_settings()
     context = "\n\n".join(
@@ -135,10 +126,22 @@ def generate_answer(
             for row in structured_rows
         )
         prompt += (
-            "\n\nAdditional structured property records:\n"
+            "\n\nStructured query results for the user's question. "
+            "Interpret aggregate aliases as values calculated over the rows "
+            "matching the query filters:\n"
             f"{structured_context}"
         )
-    chat = _get_client().chats.create(
+    if structured_query:
+        prompt += (
+            "\n\nStructured query context. The following SQL was generated and "
+            "executed specifically for the user's question. The returned rows "
+            "are the authoritative answer data; use the query filters and "
+            "parameters to determine their scope. Do not reproduce the SQL "
+            "unless the user asks for it.\n"
+            f"SQL:\n{structured_query}\n"
+            f"Parameters: {structured_parameters or {}}"
+        )
+    chat = get_genai_client().chats.create(
         model=settings.generation_model,
         config=GenerateContentConfig(temperature=0.2),
     )
