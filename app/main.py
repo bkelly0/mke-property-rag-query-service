@@ -97,11 +97,13 @@ def query(
             try:
                 query, params = generate_property_query(q)
             except (APIError, RuntimeError, ValueError):
+                logger.exception("Failed to generate structured property query")
                 raise HTTPException(status_code=502, detail="Query generation failed")
 
             try:
                 mprop_rows = execute_property_query(query, params)
             except (GoogleAPIError, ValueError):
+                logger.exception("Failed to execute structured property query")
                 raise HTTPException(status_code=502, detail="Query execution failed")
 
             try:
