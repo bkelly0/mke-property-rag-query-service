@@ -94,7 +94,7 @@ def query(
 
         case RoutingType.STRUCTURED_QUERY:
             try:
-                query, params = generate_property_query(q)
+                query, params = generate_property_query(q, selected_properties)
             except (APIError, RuntimeError, ValueError):
                 logger.exception("Failed to generate structured property query")
                 raise HTTPException(status_code=502, detail="Query generation failed")

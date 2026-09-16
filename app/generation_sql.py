@@ -104,6 +104,15 @@ The same function may be used on different fields; create a separate aggregate
 entry and alias for each field. If select fields and aggregates are both present,
 the select fields are grouping fields.
 
+Questions asking "how many", "what number of", or otherwise requesting a count
+must use a count aggregate with field set to null. Do not select individual rows
+for the application to count. Leave select empty unless the user requests counts
+grouped by a field.
+
+Use the provided property data to resolve references such as "this property".
+For example, "the same neighborhood as this property" means filtering neighborhood
+by the neighborhood value in the provided property data.
+
 Example:
 {"select": ["zoning"], "aggregates": [
     {"function": "count", "field": null, "alias": "property_count"},
@@ -220,11 +229,18 @@ _ALLOWED_AGGREGATES = {"count", "min", "max", "avg", "sum"}
 _BASE_TABLE = "`mke_rag_demo.mprop_master` m"
 
 
-def generate_property_query_plan(user_prompt: str) -> PropertyQueryPlan:
+def generate_property_query_plan(
+    user_prompt: str,
+    property_data: list[dict[str, Any]] | None = None,
+) -> PropertyQueryPlan:
     settings = get_settings()
     response = get_genai_client().models.generate_content(
         model=settings.generation_model,
-        contents=f"{PROPERTY_QUERY_PROMPT}\n\nUser question:\n{user_prompt}",
+        contents=(
+            f"{PROPERTY_QUERY_PROMPT}\n\n"
+            f"Provided property data:\n{property_data or 'None'}\n\n"
+            f"User question:\n{user_prompt}"
+        ),
         config=GenerateContentConfig(
             temperature=0,
             response_mime_type="application/json",
@@ -325,5 +341,8 @@ def build_property_query(plan: PropertyQueryPlan) -> tuple[str, dict[str, Any]]:
     return sql, parameters
 
 
-def generate_property_query(user_prompt: str) -> tuple[str, dict[str, Any]]:
-    return build_property_query(generate_property_query_plan(user_prompt))
+def generate_property_query(
+    user_prompt: str,
+    property_data: list[dict[str, Any]] | None = None,
+) -> tuple[str, dict[str, Any]]:
+    return build_property_query(generate_property_query_plan(user_prompt, property_data))
