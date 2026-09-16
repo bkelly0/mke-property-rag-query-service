@@ -6,7 +6,7 @@ from google.genai.types import GenerateContentConfig
 from app.config import get_settings
 from app.models import PropertyQueryPlan
 
-from logger import logger
+from app.logger import logger
 
 
 PROPERTY_QUERY_PROMPT = """
