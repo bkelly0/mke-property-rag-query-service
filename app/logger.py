@@ -45,12 +45,14 @@ def log_model_usage(
     logger.info(
         "model_usage",
         extra={
-            "operation": operation,
-            "model": model,
-            "input_tokens": input_tokens,
-            "output_tokens": output_tokens,
-            "thought_tokens": thought_tokens,
-            "tool_use_prompt_tokens": tool_tokens,
-            "total_tokens": total_tokens,
+            "json_fields": {
+                "operation": operation,
+                "model": model,
+                "input_tokens": input_tokens,
+                "output_tokens": output_tokens,
+                "thought_tokens": thought_tokens,
+                "tool_use_prompt_tokens": tool_tokens,
+                "total_tokens": total_tokens,
+            },
         },
     )
