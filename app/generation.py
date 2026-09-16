@@ -5,7 +5,7 @@ from google.genai.types import GenerateContentConfig
 from app.config import get_settings
 from app.genai_client import get_genai_client
 from app.models import HydeOrAnswer, RoutingType, RoutingDecision
-from app.logger import logger
+from app.logger import log_model_usage, logger
 
 
 def generate_route(
@@ -62,11 +62,10 @@ USER QUESTION:
             response_schema=RoutingDecision,
         ),
     )
+    log_model_usage(response, "routing", settings.generation_model)
 
     if not response.parsed:
         raise RuntimeError("Answer or Hyde generation failed.")
-
-    logger.debug(f"Routing generated {str(response.parsed)}")
 
     return response.parsed
     
@@ -94,6 +93,7 @@ Given the provided property data and user question. Write a hypothetical answer 
             temperature=0.2,
         ),
     )
+    log_model_usage(response, "hyde_generation", settings.generation_model)
 
     if not response.text:
         raise RuntimeError("HyDE generation failed.")
@@ -108,6 +108,10 @@ def generate_answer(
     structured_query: str | None = None,
     structured_parameters: dict[str, Any] | None = None,
 ) -> str:
+
+    if len(structured_rows) > 100:
+        raise ValueError("Structured row counts > 100 are not permitted.")
+
     settings = get_settings()
     context = "\n\n".join(
         f"Document ID: {chunk.get('id')}\n{chunk.get('content', '')}"
@@ -146,6 +150,7 @@ def generate_answer(
         config=GenerateContentConfig(temperature=0.2),
     )
     response = chat.send_message(prompt)
+    log_model_usage(response, "answer_generation", settings.generation_model)
     if not response.text:
         raise RuntimeError("Generation API returned no response text")
     return response.text.strip()

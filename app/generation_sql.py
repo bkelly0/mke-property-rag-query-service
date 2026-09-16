@@ -6,7 +6,7 @@ from app.config import get_settings
 from app.genai_client import get_genai_client
 from app.models import PropertyQueryPlan
 
-from app.logger import logger
+from app.logger import log_model_usage, logger
 
 
 PROPERTY_QUERY_PROMPT = """
@@ -221,8 +221,6 @@ _BASE_TABLE = "`mke_rag_demo.mprop_master` m"
 
 
 def generate_property_query_plan(user_prompt: str) -> PropertyQueryPlan:
-    logger.debug("generating property query plan...")
-
     settings = get_settings()
     response = get_genai_client().models.generate_content(
         model=settings.generation_model,
@@ -233,16 +231,15 @@ def generate_property_query_plan(user_prompt: str) -> PropertyQueryPlan:
             response_schema=PropertyQueryPlan,
         ),
     )
+    log_model_usage(response, "property_query_plan", settings.generation_model)
     if not response.parsed:
         raise RuntimeError("Property query generation failed.")
 
-    logger.debug(f"Generated query plan: {str(response)}")
     return response.parsed
 
 
 def build_property_query(plan: PropertyQueryPlan) -> tuple[str, dict[str, Any]]:
     """Validate a model-produced plan and compile it into parameterized BigQuery SQL."""
-    logger.debug("Building property query...")
 
     if not plan.aggregates and not plan.select:
         raise ValueError("A query must select at least one field or aggregate")

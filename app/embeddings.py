@@ -4,6 +4,7 @@ from google import genai
 from google.genai.types import EmbedContentConfig
 
 from app.config import get_settings
+from app.logger import log_model_usage
 
 
 @lru_cache
@@ -27,6 +28,7 @@ def embed_query(query: str) -> list[float]:
             output_dimensionality=settings.embedding_dimensionality,
         ),
     )
+    log_model_usage(response, "query_embedding", settings.embedding_model)
     if not response.embeddings or not response.embeddings[0].values:
         raise RuntimeError("Embedding API returned no vector")
     return list(response.embeddings[0].values)
