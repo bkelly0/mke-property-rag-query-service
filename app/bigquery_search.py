@@ -6,6 +6,7 @@ from typing import Any
 from google.cloud import bigquery
 
 from app.config import get_settings
+from app.logger import logger
 
 _IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _PROJECT_ID_RE = re.compile(r"^[a-z][a-z0-9-]{4,28}[a-z0-9]$")
@@ -70,6 +71,7 @@ def vector_search(query_vector: list[float], top_k: int) -> list[dict[str, Any]]
 
 
 def execute_property_query(sql: str, parameters: dict[str, Any]) -> list[dict[str, Any]]:
+    logger.debug(f"Executing generated query: {sql} params: {str(parameters)}")
     query_parameters = []
     for name, value in parameters.items():
         if isinstance(value, bool):

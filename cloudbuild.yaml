@@ -42,7 +42,7 @@ steps:
       - --service-account
       - ${_SERVICE_ACCOUNT}
       - --set-env-vars
-      - PROJECT_ID=${PROJECT_ID},LOCATION=${_REGION}
+      - PROJECT_ID=${PROJECT_ID},LOCATION=${_REGION},LOGGING_LEVEL=${_LOGGING_LEVEL}
       - --min-instances=0
       - --max-instances=1
       - --port
@@ -61,3 +61,4 @@ substitutions:
   _IMAGE_NAME: mke-property-rag-query-service
   _SERVICE_NAME: mke-property-rag-query-service
   _SERVICE_ACCOUNT:
+  _LOGGING_LEVEL: INFO

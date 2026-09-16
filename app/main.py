@@ -1,11 +1,9 @@
-import logging
 from typing import Annotated
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from google.api_core.exceptions import GoogleAPIError
 from google.genai.errors import APIError
-from google.cloud.logging_v2.handlers import StructuredLogHandler
 from pydantic import StringConstraints
 
 from app.bigquery_search import structured_mprop_search, vector_search, execute_property_query
@@ -14,21 +12,7 @@ from app.embeddings import embed_query
 from app.generation import generate_route, generate_answer, generate_hyde
 from app.models import QueryResponse, RoutingDecision, RoutingType
 from app.generation_sql import generate_property_query;
-
-
-def build_logger() -> logging.Logger:
-    logger = logging.getLogger("mke-rag-query-service")
-    logger.setLevel(logging.INFO)
-    logger.propagate = False
-
-    if not logger.handlers:
-        # Structured JSON to stdout; Cloud Run/GCP ingests this automatically.
-        handler = StructuredLogHandler()
-        logger.addHandler(handler)
-
-    return logger
-
-logger = build_logger()
+from app.logger import logger
 app = FastAPI(
     title="MKE RAG Query Service",
     description="Embeds a query with Vertex AI and runs a BigQuery vector search.",

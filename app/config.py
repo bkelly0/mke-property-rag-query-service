@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     bq_distance_type: str = Field(default="COSINE", validation_alias="BQ_DISTANCE_TYPE")
 
     default_top_k: int = Field(default=7, validation_alias="DEFAULT_TOP_K")
+    logging_level: str = Field(default="INFO", validation_alias="LOGGING_LEVEL")
 
 
 @lru_cache(maxsize=1)

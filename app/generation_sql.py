@@ -6,6 +6,8 @@ from google.genai.types import GenerateContentConfig
 from app.config import get_settings
 from app.models import PropertyQueryPlan
 
+from logger import logger
+
 
 PROPERTY_QUERY_PROMPT = """
 Base table: mprop_master (alias: m)
@@ -208,6 +210,8 @@ def generate_property_query_plan(user_prompt: str) -> PropertyQueryPlan:
     )
     if not response.parsed:
         raise RuntimeError("Property query generation failed.")
+
+    logger.debug(f"Generated query plan: {str(response)}")
     return response.parsed
 
 
