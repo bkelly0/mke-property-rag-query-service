@@ -8,11 +8,12 @@ from google.genai.errors import APIError
 from google.cloud.logging_v2.handlers import StructuredLogHandler
 from pydantic import StringConstraints
 
-from app.bigquery_search import structured_mprop_search, vector_search
+from app.bigquery_search import structured_mprop_search, vector_search, execute_property_query
 from app.config import get_settings
 from app.embeddings import embed_query
 from app.generation import generate_route, generate_answer, generate_hyde
 from app.models import QueryResponse, RoutingDecision, RoutingType
+from app.generation_sql import generate_property_query;
 
 
 def build_logger() -> logging.Logger:
@@ -108,6 +109,21 @@ def query(
             pass
 
         case RoutingType.STRUCTURED_QUERY:
+            try:
+                query, params = generate_property_query(q)
+            except (APIError, RuntimeError, ValueError):
+                raise HTTPException(status_code=502, detail="Query generation failed")
+
+            try:
+                mprop_rows = execute_property_query(query, params)
+            except (GoogleAPIError, ValueError):
+                raise HTTPException(status_code=502, detail="Query execution failed")
+
+            try:
+                answer = generate_answer(q, [], mprop_rows)
+            except (APIError, RuntimeError):
+                logger.exception("Failed to generate answer")
+                raise HTTPException(status_code=502, detail="Answer generation failed")
             pass
 
         case RoutingType.PROVIDED_DATA:

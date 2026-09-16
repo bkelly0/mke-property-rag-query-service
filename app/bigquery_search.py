@@ -69,6 +69,26 @@ def vector_search(query_vector: list[float], top_k: int) -> list[dict[str, Any]]
     return [dict(row.items()) for row in rows]
 
 
+def execute_property_query(sql: str, parameters: dict[str, Any]) -> list[dict[str, Any]]:
+    query_parameters = []
+    for name, value in parameters.items():
+        if isinstance(value, bool):
+            parameter_type = "BOOL"
+        elif isinstance(value, int):
+            parameter_type = "INT64"
+        elif isinstance(value, float):
+            parameter_type = "FLOAT64"
+        elif isinstance(value, str):
+            parameter_type = "STRING"
+        else:
+            raise ValueError(f"Unsupported query parameter type for {name}: {type(value).__name__}")
+        query_parameters.append(bigquery.ScalarQueryParameter(name, parameter_type, value))
+
+    job_config = bigquery.QueryJobConfig(query_parameters=query_parameters)
+    rows = _get_client().query(sql, job_config=job_config).result()
+    return [dict(row.items()) for row in rows]
+
+
 def structured_mprop_search(taxkeys: list[str]) -> list[dict[str, Any]]:
     if not all(re.fullmatch(r"\d{1,10}", taxkey) for taxkey in taxkeys):
         raise ValueError("Each taxkey must contain only digits and be at most 10 characters")

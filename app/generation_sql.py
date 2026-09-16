@@ -1,4 +1,13 @@
-prompt = """
+from typing import Any
+
+from google import genai
+from google.genai.types import GenerateContentConfig
+
+from app.config import get_settings
+from app.models import PropertyQueryPlan
+
+
+PROPERTY_QUERY_PROMPT = """
 Base table: mprop_master (alias: m)
 
 Available fields:
@@ -62,6 +71,11 @@ Available relationships:
 - exemption_type: exemption type descriptions
 
 Choose required_relationships only when a requested field requires it.
+
+Return a JSON PropertyQueryPlan. Use only the available field names. Use filters
+with field, operator, and value keys. Allowed operators are =, !=, <, <=, >, >=,
+and contains. Do not generate SQL.
+Avoid returning more than 100 rows.
 """
 
 ALLOWED_FIELDS = {
@@ -157,3 +171,115 @@ ALLOWED_JOINS = {
         "ON ex.code = m.c_a_exm_type"
     ),
 }
+
+_JOIN_BY_ALIAS = {
+    "ac1": "assessment_class",
+    "bt": "building_type",
+    "ct": "conveyance_type",
+    "ex": "exemption_type",
+    "loc": "property_location",
+    "lu": "land_use",
+    "zc": "zoning_district",
+}
+_ALLOWED_OPERATORS = {"=", "!=", "<", "<=", ">", ">=", "contains"}
+_ALLOWED_AGGREGATES = {"count", "min", "max", "avg", "sum"}
+_BASE_TABLE = "`mke_rag_demo.mprop_master` m"
+
+
+def _get_client() -> genai.Client:
+    settings = get_settings()
+    return genai.Client(
+        vertexai=True,
+        project=settings.gcp_project_id,
+        location=settings.gcp_location,
+    )
+
+
+def generate_property_query_plan(user_prompt: str) -> PropertyQueryPlan:
+    settings = get_settings()
+    response = _get_client().models.generate_content(
+        model=settings.generation_model,
+        contents=f"{PROPERTY_QUERY_PROMPT}\n\nUser question:\n{user_prompt}",
+        config=GenerateContentConfig(
+            temperature=0,
+            response_mime_type="application/json",
+            response_schema=PropertyQueryPlan,
+        ),
+    )
+    if not response.parsed:
+        raise RuntimeError("Property query generation failed.")
+    return response.parsed
+
+
+def build_property_query(plan: PropertyQueryPlan) -> tuple[str, dict[str, Any]]:
+    """Validate a model-produced plan and compile it into parameterized BigQuery SQL."""
+    if plan.aggregate and plan.aggregate not in _ALLOWED_AGGREGATES:
+        raise ValueError(f"Unsupported aggregate: {plan.aggregate}")
+    if not plan.aggregate and not plan.select:
+        raise ValueError("A query without an aggregate must select at least one field")
+
+    referenced_fields = [*plan.select, *(filter_["field"] for filter_ in plan.filters)]
+    if plan.order_by:
+        referenced_fields.append(plan.order_by)
+
+    unknown_fields = set(referenced_fields) - ALLOWED_FIELDS.keys()
+    if unknown_fields:
+        raise ValueError(f"Unsupported fields: {', '.join(sorted(unknown_fields))}")
+
+    joins = {
+        _JOIN_BY_ALIAS[expression.split(".", 1)[0]]
+        for field in referenced_fields
+        if (expression := ALLOWED_FIELDS[field]).split(".", 1)[0] in _JOIN_BY_ALIAS
+    }
+
+    select_expressions = [f"{ALLOWED_FIELDS[field]} AS {field}" for field in plan.select]
+    if plan.aggregate:
+        if plan.aggregate == "count":
+            select_expressions = ["COUNT(*) AS count"]
+        elif len(plan.select) != 1:
+            raise ValueError("min, max, avg, and sum require exactly one selected field")
+        else:
+            field = plan.select[0]
+            select_expressions = [f"{plan.aggregate.upper()}({ALLOWED_FIELDS[field]}) AS {field}"]
+
+    parameters: dict[str, Any] = {}
+    where_clauses = []
+    for index, filter_ in enumerate(plan.filters):
+        if set(filter_) != {"field", "operator", "value"}:
+            raise ValueError("Each filter must contain field, operator, and value")
+        field = filter_["field"]
+        operator = filter_["operator"]
+        value = filter_["value"]
+        if not isinstance(field, str) or field not in ALLOWED_FIELDS:
+            raise ValueError(f"Unsupported filter field: {field!r}")
+        if operator not in _ALLOWED_OPERATORS:
+            raise ValueError(f"Unsupported filter operator: {operator!r}")
+        if not isinstance(value, (str, int, float, bool)):
+            raise ValueError("Filter values must be strings, numbers, or booleans")
+
+        parameter_name = f"filter_{index}"
+        expression = ALLOWED_FIELDS[field]
+        if operator == "contains":
+            where_clauses.append(f"{expression} LIKE @{parameter_name}")
+            parameters[parameter_name] = f"%{value}%"
+        else:
+            where_clauses.append(f"{expression} {operator} @{parameter_name}")
+            parameters[parameter_name] = value
+
+    sql = f"SELECT {', '.join(select_expressions)}\nFROM {_BASE_TABLE}"
+    if joins:
+        sql += "\n" + "\n".join(ALLOWED_JOINS[join] for join in sorted(joins))
+    if where_clauses:
+        sql += "\nWHERE " + " AND ".join(where_clauses)
+    if plan.order_by:
+        direction = plan.order_direction or "ASC"
+        sql += f"\nORDER BY {ALLOWED_FIELDS[plan.order_by]} {direction}"
+    if not plan.aggregate:
+        sql += "\nLIMIT @limit"
+        parameters["limit"] = plan.limit
+
+    return sql, parameters
+
+
+def generate_property_query(user_prompt: str) -> tuple[str, dict[str, Any]]:
+    return build_property_query(generate_property_query_plan(user_prompt))
