@@ -7,8 +7,8 @@ from google.genai.types import GenerateContentConfig
 
 from app.config import get_settings
 from app.models import HydeOrAnswer, RoutingType, RoutingDecision
+from app.logger import logger
 
-logger = logging.getLogger("mke-rag-query-service")
 
 @lru_cache
 def _get_client() -> genai.Client:
@@ -77,6 +77,7 @@ USER QUESTION:
     if not response.parsed:
         raise RuntimeError("Answer or Hyde generation failed.")
 
+
     return response.parsed
     
 
@@ -106,6 +107,8 @@ Given the provided property data and user question. Write a hypothetical answer 
 
     if not response.text:
         raise RuntimeError("HyDE generation failed.")
+
+    logger.debug(f"Routing generated {response.text}")
 
     return response.text.strip()
 

@@ -93,6 +93,7 @@ def query(
             pass
 
         case RoutingType.STRUCTURED_QUERY:
+            logger.debug("Handling structured query flow...")
             try:
                 query, params = generate_property_query(q)
             except (APIError, RuntimeError, ValueError):
