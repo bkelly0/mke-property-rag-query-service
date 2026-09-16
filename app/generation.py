@@ -32,7 +32,20 @@ Routing rules, in priority order:
    absent or irrelevant.
 
 4. STRUCTURED_QUERY when the request needs property-table filtering, counts,
-   aggregates, date comparisons, sums, or a list of matching properties.
+   aggregates, date comparisons, sums, or a reasonably bounded list of matching
+   properties.
+
+   Route aggregate requests such as counts, averages, minimums, maximums, and sums
+   to STRUCTURED_QUERY regardless of how many source rows they may examine.
+
+   Route non-aggregate list requests to STRUCTURED_QUERY only when the user
+   explicitly limits the result or the request is naturally narrow enough to
+   return no more than 100 properties.
+
+   Route to DIRECT_ANSWER when the user appears to request an unbounded or large
+   non-aggregated result set, such as all properties in a neighborhood, ZIP code,
+   district, or broad value range. The reasoning must explain that bulk property
+   retrieval is not supported and suggest an aggregate or narrower filter.
 
 5. DIRECT_ANSWER only for greetings, general conversation, or questions unrelated
    to property, zoning, building code, planning, or municipal regulations.
@@ -44,6 +57,12 @@ Examples:
   building's value?" with property data -> HYDE_VECTOR_SEARCH
 - "What is the maximum permitted height in this zoning district?" without property
   data -> VECTOR_SEARCH
+- "How many properties are in this neighborhood?" -> STRUCTURED_QUERY
+- "What is the average assessment in this neighborhood?" -> STRUCTURED_QUERY
+- "Show the 20 most valuable properties in this neighborhood?"
+  -> STRUCTURED_QUERY
+- "Return every property in this neighborhood." -> DIRECT_ANSWER
+- "List all properties assessed above $100,000." -> DIRECT_ANSWER
 
 Provided property data:
 {property_data or "None"}
