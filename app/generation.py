@@ -77,6 +77,7 @@ USER QUESTION:
     if not response.parsed:
         raise RuntimeError("Answer or Hyde generation failed.")
 
+    logger.debug(f"Routing generated {str(response.parsed)}")
 
     return response.parsed
     
@@ -107,8 +108,6 @@ Given the provided property data and user question. Write a hypothetical answer 
 
     if not response.text:
         raise RuntimeError("HyDE generation failed.")
-
-    logger.debug(f"Routing generated {response.text}")
 
     return response.text.strip()
 

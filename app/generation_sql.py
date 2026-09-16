@@ -198,6 +198,8 @@ def _get_client() -> genai.Client:
 
 
 def generate_property_query_plan(user_prompt: str) -> PropertyQueryPlan:
+    logger.debug("generating property query plan...")
+
     settings = get_settings()
     response = _get_client().models.generate_content(
         model=settings.generation_model,
@@ -217,6 +219,8 @@ def generate_property_query_plan(user_prompt: str) -> PropertyQueryPlan:
 
 def build_property_query(plan: PropertyQueryPlan) -> tuple[str, dict[str, Any]]:
     """Validate a model-produced plan and compile it into parameterized BigQuery SQL."""
+    logger.debug("Building property query...")
+
     if plan.aggregate and plan.aggregate not in _ALLOWED_AGGREGATES:
         raise ValueError(f"Unsupported aggregate: {plan.aggregate}")
     if not plan.aggregate and not plan.select:
