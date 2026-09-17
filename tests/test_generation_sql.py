@@ -43,7 +43,10 @@ def test_neighborhood_count_uses_selected_property_context(monkeypatch) -> None:
     )
 
     assert "Avenues West" in captured_request["contents"]
-    assert "must use a count aggregate" in captured_request["contents"]
+    assert (
+        "must use a count aggregate"
+        in captured_request["config"].system_instruction
+    )
     assert "COUNT(*) AS property_count" in sql
     assert "LIMIT" not in sql
     assert parameters == {"filter_0": "Avenues West"}
