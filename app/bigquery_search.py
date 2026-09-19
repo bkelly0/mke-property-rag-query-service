@@ -7,12 +7,54 @@ from google.cloud import bigquery
 
 from app.config import get_settings
 from app.logger import logger
+from app.models import AddressSearchResult
 
 _IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _PROJECT_ID_RE = re.compile(r"^[a-z][a-z0-9-]{4,28}[a-z0-9]$")
 _ALLOWED_DISTANCE_TYPES = {"COSINE", "EUCLIDEAN", "DOT_PRODUCT"}
+_ADDRESS_SEARCH_SQL = Path(__file__).parent / "sql" / "address_search.sql"
 _STRUCTURED_MPROP_SQL = Path(__file__).parent / "sql" / "select_structured_mprop.sql"
 
+_STYPES = {
+    'AVENUE': 'AV',
+    'PLACE': 'PL',
+    'STREET': 'ST',
+    'ROAD': 'RD',
+    'DRIVE': 'DR',
+    'BLOCK': 'BL',
+    'PARK': 'PK',
+    'WAY': 'WA',
+    'LANE': 'LA',
+}
+_DIR = {
+    "NORTH": "N",
+    "EAST": "E",
+    "SOUTH": "S",
+    "WEST": "W",
+}
+
+def search_address(user_input: str) -> list[AddressSearchResult]:
+    normalized_input = _normalize(user_input)
+    sql = _ADDRESS_SEARCH_SQL.read_text(encoding="utf-8")
+    rows = execute_property_query(sql, {"search_string": normalized_input})
+    return [AddressSearchResult.model_validate(row) for row in rows]
+
+def _normalize(s:str) -> str:
+    s = s.upper()
+    s = s.replace("MILWAUKEE","").replace("WISCONSIN","").replace("WI","") #TODO: exclude WI substrings
+    s = _replace(s, _STYPES)
+    arr = s.split(" ")
+    # avoid changing 123 North St
+    for i in range(0, len(arr)):
+        if (i+1 < len(arr) and arr[i+1] not in _STYPES.values()):
+            arr[i] = _replace(arr[i], _DIR)
+    return " ".join(arr)
+
+
+def _replace(value: str, replacements: dict[str, str]) -> str:
+    for search, replacement in replacements.items():
+        value = value.replace(search, replacement)
+    return value
 
 def _validate_identifier(value: str, field: str) -> str:
     if not _IDENTIFIER_RE.match(value):

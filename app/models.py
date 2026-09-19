@@ -23,10 +23,16 @@ class RoutingDecision(BaseModel):
     )
 
 
-class SearchResult(BaseModel):
+class VectorSearchResult(BaseModel):
     id: str | None = None
     content: str | None = None
     distance: float
+
+
+class AddressSearchResult(BaseModel):
+    taxkey: str
+    formatted_address: str
+    distance: int
 
 
 class QueryResponse(BaseModel):

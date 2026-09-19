@@ -6,11 +6,11 @@ from google.api_core.exceptions import GoogleAPIError
 from google.genai.errors import APIError
 from pydantic import StringConstraints
 
-from app.bigquery_search import structured_mprop_search, vector_search, execute_property_query
+from app.bigquery_search import execute_property_query, search_address, structured_mprop_search, vector_search
 from app.config import get_settings
 from app.embeddings import embed_query
 from app.generation import generate_route, generate_answer, generate_hyde
-from app.models import QueryResponse, RoutingDecision, RoutingType
+from app.models import AddressSearchResult, QueryResponse, RoutingDecision, RoutingType
 from app.generation_sql import generate_property_query;
 from app.logger import logger
 app = FastAPI(
@@ -36,6 +36,17 @@ TaxKey = Annotated[str, StringConstraints(pattern=r"^\d+$", max_length=10)]
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get("/search", response_model=list[AddressSearchResult])
+def search(
+    q: str = Query(..., min_length=1, max_length=40, description="Address to search for"),
+) -> list[AddressSearchResult]:
+    try:
+        return search_address(q)
+    except GoogleAPIError:
+        logger.exception("BigQuery address search failed")
+        raise HTTPException(status_code=502, detail="Address search failed")
 
 
 @app.get("/query", response_model=QueryResponse)
