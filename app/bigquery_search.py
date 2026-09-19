@@ -43,7 +43,7 @@ def _normalize(s:str) -> str:
     s = s.upper()
     s = s.replace("MILWAUKEE","").replace("WISCONSIN","").replace("WI","") #TODO: exclude WI substrings
     s = _replace(s, _STYPES)
-    arr = s.split(" ")
+    arr = s.split()
     # avoid changing 123 North St
     for i in range(0, len(arr)):
         if (i+1 < len(arr) and arr[i+1] not in _STYPES.values()):
