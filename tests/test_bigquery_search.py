@@ -3,7 +3,7 @@ import os
 os.environ.setdefault("PROJECT_ID", "test-project")
 
 from app import bigquery_search
-from app.models import AddressSearchResult
+from app.models import AddressSearchResult, GeoPoint
 
 
 def test_search_address_returns_address_search_models(monkeypatch) -> None:
@@ -17,6 +17,7 @@ def test_search_address_returns_address_search_models(monkeypatch) -> None:
                 "taxkey": "1234567890",
                 "formatted_address": "123 N WATER ST",
                 "distance": 1,
+                "centroid": {"latitude": 43.0389, "longitude": -87.9065},
             }
         ]
 
@@ -29,6 +30,7 @@ def test_search_address_returns_address_search_models(monkeypatch) -> None:
             taxkey="1234567890",
             formatted_address="123 N WATER ST",
             distance=1,
+            centroid=GeoPoint(latitude=43.0389, longitude=-87.9065),
         )
     ]
     assert captured_parameters == {"search_string": "123 N WATER ST"}

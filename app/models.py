@@ -29,10 +29,16 @@ class VectorSearchResult(BaseModel):
     distance: float
 
 
+class GeoPoint(BaseModel):
+    latitude: float
+    longitude: float
+
+
 class AddressSearchResult(BaseModel):
     taxkey: str
     formatted_address: str
     distance: int
+    centroid: GeoPoint | None = None
 
 
 class QueryResponse(BaseModel):
