@@ -187,6 +187,13 @@ ALLOWED_FIELDS = {
     "police_dist": "m.geo_police",
     "fire_dist": "m.geo_fire",
     "num_units": "m.nr_units",
+    "neighborhood_num_properties": "ns.num_properties",
+    "neighborhood_approx_median_assessed_total": "ns.approx_median_assessed_total",
+    "neighborhood_approx_median_total_percent": "ns.approx_median_total_percent",
+    "neighborhood_approx_median_land": "ns.approx_median_land",
+    "neighborhood_approx_median_land_percent": "ns.approx_median_land_percent",
+    "neighborhood_approx_median_imprv": "ns.approx_median_imprv",
+    "neighborhood_approx_median_imprv_percent" : "ns.approx_median_imprv_percent",
 }
 
 ALLOWED_JOINS = {
@@ -218,6 +225,10 @@ ALLOWED_JOINS = {
         "LEFT OUTER JOIN `mke_rag_demo.exemption_types` ex "
         "ON ex.code = m.c_a_exm_type"
     ),
+    "neighborhood_stats": (
+        "LEFT OUTER JOIN `mke_rag_demo.neighborhood_stats` ns "
+        "ON ns.neighborhood = loc.neighborhood_name"
+    )
 }
 
 _JOIN_BY_ALIAS = {
@@ -228,6 +239,7 @@ _JOIN_BY_ALIAS = {
     "loc": "property_location",
     "lu": "land_use",
     "zc": "zoning_district",
+    "ns": "neighborhood_stats",
 }
 
 _BASE_TABLE = "`mke_rag_demo.mprop_master` m"
