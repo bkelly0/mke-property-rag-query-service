@@ -62,6 +62,13 @@ Available fields:
 - police_dist: police district
 - fire_dist: fire district
 - num_units: number of dwelling units
+- neighborhood_num_properties: number of properties recorded for a neighborhood
+- neighborhood_approx_median_assessed_total: approximate median of total assessed value
+- neighborhood_approx_median_total_percent: approximate median percent of total assesed value change
+- neighborhood_approx_median_land: approximate median assessed land value
+- neighborhood_approx_median_land_percent: approximate median assessed land value percentage change
+- neighborhood_approx_median_imprv: approximate media assessed improments
+- neighborhood_approx_median_imprv_percent: approximate media assessed improments percent change
 
 Available relationships:
 - building_type: building type descriptions
@@ -71,6 +78,7 @@ Available relationships:
 - zoning_district: zoning district names
 - property_location: neighborhood names
 - exemption_type: exemption type descriptions
+- neighborhood_stats: aggregated neighborhood property value stats
 
 Field-to-relationship rules:
 
