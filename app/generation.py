@@ -5,7 +5,7 @@ from google.genai.types import GenerateContentConfig
 from app.config import get_settings
 from app.genai_client import get_genai_client
 from app.models import HydeOrAnswer, RoutingType, RoutingDecision
-from app.logger import log_model_usage, logger
+from app.logger import logger
 
 
 _ROUTING_SYSTEM_INSTRUCTION = """
@@ -91,7 +91,6 @@ def generate_route(
             response_schema=RoutingDecision,
         ),
     )
-    log_model_usage(response, "routing", settings.generation_model)
 
     if not response.parsed:
         raise RuntimeError("Answer or Hyde generation failed.")
@@ -134,7 +133,6 @@ def generate_hyde(
             temperature=0.2,
         ),
     )
-    log_model_usage(response, "hyde_generation", settings.generation_model)
 
     if not response.text:
         raise RuntimeError("HyDE generation failed.")
@@ -206,7 +204,6 @@ def generate_answer(
         ),
     )
     response = chat.send_message(prompt)
-    log_model_usage(response, "answer_generation", settings.generation_model)
     if not response.text:
         raise RuntimeError("Generation API returned no response text")
     return response.text.strip()

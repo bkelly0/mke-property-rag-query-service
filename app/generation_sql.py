@@ -6,7 +6,7 @@ from app.config import get_settings
 from app.genai_client import get_genai_client
 from app.models import PropertyQueryPlan
 
-from app.logger import log_model_usage, logger
+from app.logger import logger
 
 
 PROPERTY_QUERY_PROMPT = """
@@ -292,7 +292,6 @@ def generate_property_query_plan(
             response_schema=PropertyQueryPlan,
         ),
     )
-    log_model_usage(response, "property_query_plan", settings.generation_model)
     if not response.parsed:
         raise RuntimeError("Property query generation failed.")
 
