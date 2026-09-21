@@ -42,7 +42,7 @@ steps:
       - --service-account
       - ${_SERVICE_ACCOUNT}
       - --set-env-vars
-        - "^|^PROJECT_ID=${PROJECT_ID}|LOCATION=${_REGION}|LOGGING_LEVEL=${_LOGGING_LEVEL}|CORS_ORIGINS=${_CORS_ORIGINS}|CORS_METHODS=${_CORS_METHODS}|CORS_HEADERS=${_CORS_HEADERS}"
+      - '^|^PROJECT_ID=${PROJECT_ID}|LOCATION=${_REGION}|LOGGING_LEVEL=${_LOGGING_LEVEL}|CORS_ORIGINS=${_CORS_ORIGINS}|CORS_METHODS=${_CORS_METHODS}|CORS_HEADERS=${_CORS_HEADERS}'
       - --min-instances=0
       - --max-instances=1
       - --port
