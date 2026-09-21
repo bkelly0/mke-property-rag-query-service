@@ -98,11 +98,12 @@ When a question identifies a street, add filters for every supplied address
 component. For example, "How many properties are on N 26th St?" must use all
 of these filters:
 {"field": "street_direction", "operator": "=", "value": "N"}
-{"field": "street_name", "operator": "=", "value": "26th"}
+{"field": "street_name", "operator": "=", "value": "26"}
 {"field": "street_type", "operator": "=", "value": "St"}
 Normalize compact street references such as "N26th St" into their directional
 prefix, street name, and street type before creating the filters. Never omit
-street filters when the question specifies a street.
+street filters when the question specifies a street. Numeric street names like "20th" or "1st" should
+be normalized to only the numeric value such as "20" or "1".
 
 Do not use "property_location" as a field name. It is a relationship name.
 
