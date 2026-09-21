@@ -94,6 +94,16 @@ Field-to-relationship rules:
 When a question mentions a neighborhood, use a filter like:
 {"field": "neighborhood", "operator": "contains", "value": "Avenues West"}
 
+When a question identifies a street, add filters for every supplied address
+component. For example, "How many properties are on N 26th St?" must use all
+of these filters:
+{"field": "street_direction", "operator": "=", "value": "N"}
+{"field": "street_name", "operator": "=", "value": "26th"}
+{"field": "street_type", "operator": "=", "value": "St"}
+Normalize compact street references such as "N26th St" into their directional
+prefix, street name, and street type before creating the filters. Never omit
+street filters when the question specifies a street.
+
 Do not use "property_location" as a field name. It is a relationship name.
 
 Choose required_relationships only when a requested field requires it.
