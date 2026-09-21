@@ -58,7 +58,7 @@ class HydeOrAnswer(BaseModel):
     hyde: str = Field(description="A hypothetical excerpt (HyDE) to be used in vector search if additional documents are required to answer the question.")
 
 class AggregateSpec(BaseModel):
-    function: Literal["count", "min", "max", "avg", "sum"]
+    function: Literal["count", "min", "max", "avg", "sum", "approx_quantiles"]
     field: str | None = Field(
         default=None,
         description="Allowed field ID; omit for count, which counts rows.",

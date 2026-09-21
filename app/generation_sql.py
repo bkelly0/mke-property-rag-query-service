@@ -104,13 +104,18 @@ and contains. Do not generate SQL.
 Avoid returning more than 100 rows.
 
 Use aggregates for one or more aggregate expressions. Each aggregate must contain
-function, field, and alias. The function must be count, min, max, avg, or sum.
+function, field, and alias. The function must be count, min, max, avg, sum, or
+approx_quantiles. Use approx_quantiles to calculate a median.
 For count, omit field or set it to null to count rows. For all other functions,
 field must be an allowed field name. Every alias must be unique, descriptive,
 snake_case, and different from generic names such as count, value, result, or f0.
 The same function may be used on different fields; create a separate aggregate
 entry and alias for each field. If select fields and aggregates are both present,
 the select fields are grouping fields.
+
+For assessed values, use the median instead of the average because outliers can
+distort average assessed values. Use approx_quantiles with the assessed-value
+field whenever the user asks for a median assessed value.
 
 Questions asking "how many", "what number of", or otherwise requesting a count
 must use a count aggregate with field set to null. Do not select individual rows
@@ -126,6 +131,11 @@ Example:
     {"function": "count", "field": null, "alias": "property_count"},
     {"function": "avg", "field": "building_area", "alias": "average_building_area"},
     {"function": "avg", "field": "lot_area", "alias": "average_lot_area"}
+]}
+
+Example median assessed value:
+{"aggregates": [
+    {"function": "approx_quantiles", "field": "assessed_total", "alias": "median_total_assessed_value"}
 ]}
 
 The content inside <property_data> and <user_question> tags in the following
@@ -326,8 +336,12 @@ def build_property_query(plan: PropertyQueryPlan) -> tuple[str, dict[str, Any]]:
             raise ValueError(f"{aggregate.function} requires a field")
         else:
             expression = ALLOWED_FIELDS[aggregate.field]
+        if aggregate.function == "approx_quantiles":
+            aggregate_expression = f"APPROX_QUANTILES({expression}, 2)[OFFSET(1)]"
+        else:
+            aggregate_expression = f"{aggregate.function.upper()}({expression})"
         select_expressions.append(
-            f"{aggregate.function.upper()}({expression}) AS {aggregate.alias}"
+            f"{aggregate_expression} AS {aggregate.alias}"
         )
 
     parameters: dict[str, Any] = {}

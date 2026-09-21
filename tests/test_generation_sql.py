@@ -50,3 +50,30 @@ def test_neighborhood_count_uses_selected_property_context(monkeypatch) -> None:
     assert "COUNT(*) AS property_count" in sql
     assert "LIMIT" not in sql
     assert parameters == {"filter_0": "Avenues West"}
+
+
+def test_median_assessed_total_uses_approx_quantiles() -> None:
+    plan = PropertyQueryPlan(
+        filters=[
+            FilterSpec(
+                field="neighborhood",
+                operator="contains",
+                value="Avenues West",
+            )
+        ],
+        aggregates=[
+            AggregateSpec(
+                function="approx_quantiles",
+                field="assessed_total",
+                alias="median_total_assessed_value",
+            )
+        ],
+    )
+
+    sql, parameters = generation_sql.build_property_query(plan)
+
+    assert (
+        "APPROX_QUANTILES(m.c_a_total, 2)[OFFSET(1)] "
+        "AS median_total_assessed_value"
+    ) in sql
+    assert parameters == {"filter_0": "%Avenues West%"}
