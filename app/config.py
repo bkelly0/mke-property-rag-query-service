@@ -24,6 +24,13 @@ class Settings(BaseSettings):
     default_top_k: int = Field(default=7, validation_alias="DEFAULT_TOP_K")
     logging_level: str = Field(default="INFO", validation_alias="LOGGING_LEVEL")
 
+    cors_origins: str = Field(
+        default="http://localhost:5173,http://127.0.0.1:5173",
+        validation_alias="CORS_ORIGINS",
+    )
+    cors_methods: str = Field(default="*", validation_alias="CORS_METHODS")
+    cors_headers: str = Field(default="*", validation_alias="CORS_HEADERS")
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
