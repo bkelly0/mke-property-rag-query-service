@@ -1,4 +1,6 @@
 import jwt
+from app.logger import logger
+
 
 def verify_token(token: str, jwt_secret: str) -> bool:
     try:
@@ -9,5 +11,6 @@ def verify_token(token: str, jwt_secret: str) -> bool:
             options={"require": ["exp", "sub"]},
         )
         return True
-    except jwt.InvalidTokenError as exec:
+    except jwt.InvalidTokenError as ex:
+        logger.warning(str(ex))
         return False
