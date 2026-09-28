@@ -1,7 +1,8 @@
 import json
 from typing import Annotated
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Depends
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.middleware.cors import CORSMiddleware
 from google.api_core.exceptions import GoogleAPIError
 from google.genai.errors import APIError
@@ -14,7 +15,14 @@ from app.generation import generate_route, generate_answer, generate_hyde
 from app.models import AddressSearchResult, QueryResponse, RoutingDecision, RoutingType
 from app.generation_sql import generate_property_query;
 from app.logger import logger
+from app.jwt import verify_token
 
+http_bearer = HTTPBearer()
+
+def _authorize(credentials: Annotated[HTTPAuthorizationCredentials, Depends(http_bearer)]) -> None:
+    if not verify_token(credentials.credentials, get_settings().jwt_secret_key):
+                raise HTTPException(status_code=401, detail="Invalid or expired token")
+    
 
 def _parse_cors_value(value: str | None, default: list[str]) -> list[str]:
     if value is None or value == "":
@@ -62,7 +70,7 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
-@app.get("/api/v1/search", response_model=list[AddressSearchResult])
+@app.get("/api/v1/search", response_model=list[AddressSearchResult], dependencies=[Depends(_authorize)])
 def search(
     q: str = Query(..., min_length=1, max_length=40, description="Address to search for"),
 ) -> list[AddressSearchResult]:
@@ -73,10 +81,10 @@ def search(
         raise HTTPException(status_code=502, detail="Address search failed")
 
 
-@app.get("/api/v1/rag", response_model=QueryResponse)
+@app.get("/api/v1/rag", response_model=QueryResponse, dependencies=[Depends(_authorize)])
 def query(
     q: str = Query(..., min_length=1, max_length=250, description="Question to submit to the RAG"),
-    taxkeys: list[TaxKey] | None = Query(None, description="Tax keys to include in reference to the question"),
+    taxkeys: list[TaxKey] | None = Query(None, max_length=100, description="Tax keys to include in reference to the question"),
 ) -> QueryResponse:
     settings = get_settings()
     limit = settings.default_top_k
