@@ -22,6 +22,16 @@ class Settings(BaseSettings):
     bq_distance_type: str = Field(default="COSINE", validation_alias="BQ_DISTANCE_TYPE")
 
     default_top_k: int = Field(default=7, validation_alias="DEFAULT_TOP_K")
+    logging_level: str = Field(default="INFO", validation_alias="LOGGING_LEVEL")
+
+    jwt_secret_key: str = Field(validation_alias="JWT_SECRET_KEY")
+
+    cors_origins: str = Field(
+        default="http://localhost:5173,http://127.0.0.1:5173",
+        validation_alias="CORS_ORIGINS",
+    )
+    cors_methods: str = Field(default="*", validation_alias="CORS_METHODS")
+    cors_headers: str = Field(default="*", validation_alias="CORS_HEADERS")
 
 
 @lru_cache(maxsize=1)

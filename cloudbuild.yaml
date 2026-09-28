@@ -41,8 +41,10 @@ steps:
       - --allow-unauthenticated
       - --service-account
       - ${_SERVICE_ACCOUNT}
+      - --set-secrets
+      - JWT_SECRET_KEY=${_JWT_SECRET_KEY}
       - --set-env-vars
-      - PROJECT_ID=${PROJECT_ID},LOCATION=${_REGION}
+      - '^|^PROJECT_ID=${PROJECT_ID}|LOCATION=${_REGION}|LOGGING_LEVEL=${_LOGGING_LEVEL}|CORS_ORIGINS=${_CORS_ORIGINS}|CORS_METHODS=${_CORS_METHODS}|CORS_HEADERS=${_CORS_HEADERS}'
       - --min-instances=0
       - --max-instances=1
       - --port
@@ -61,3 +63,8 @@ substitutions:
   _IMAGE_NAME: mke-property-rag-query-service
   _SERVICE_NAME: mke-property-rag-query-service
   _SERVICE_ACCOUNT:
+  _LOGGING_LEVEL: INFO
+  _CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
+  _CORS_METHODS: "*"
+  _CORS_HEADERS: "*"
+  _JWT_SECRET_KEY:

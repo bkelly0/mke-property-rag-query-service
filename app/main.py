@@ -1,34 +1,50 @@
-import logging
+import json
 from typing import Annotated
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Depends
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.middleware.cors import CORSMiddleware
 from google.api_core.exceptions import GoogleAPIError
 from google.genai.errors import APIError
-from google.cloud.logging_v2.handlers import StructuredLogHandler
 from pydantic import StringConstraints
 
-from app.bigquery_search import structured_mprop_search, vector_search, execute_property_query
+from app.bigquery_search import execute_property_query, search_address, structured_mprop_search, vector_search
 from app.config import get_settings
 from app.embeddings import embed_query
 from app.generation import generate_route, generate_answer, generate_hyde
-from app.models import QueryResponse, RoutingDecision, RoutingType
+from app.models import AddressSearchResult, QueryResponse, RoutingDecision, RoutingType
 from app.generation_sql import generate_property_query;
+from app.logger import logger
+from app.jwt import verify_token
+
+http_bearer = HTTPBearer()
+
+def _authorize(credentials: Annotated[HTTPAuthorizationCredentials, Depends(http_bearer)]) -> None:
+    if not verify_token(credentials.credentials, get_settings().jwt_secret_key):
+                raise HTTPException(status_code=401, detail="Invalid or expired token")
+    
+
+def _parse_cors_value(value: str | None, default: list[str]) -> list[str]:
+    if value is None or value == "":
+        return default
+
+    candidate = value.strip()
+    if not candidate:
+        return default
+
+    if candidate.startswith("["):
+        try:
+            parsed = json.loads(candidate)
+        except json.JSONDecodeError:
+            pass
+        else:
+            if isinstance(parsed, list):
+                return [str(item).strip() for item in parsed if str(item).strip()]
+
+    return [item.strip() for item in candidate.split(",") if item.strip()]
 
 
-def build_logger() -> logging.Logger:
-    logger = logging.getLogger("mke-rag-query-service")
-    logger.setLevel(logging.INFO)
-    logger.propagate = False
-
-    if not logger.handlers:
-        # Structured JSON to stdout; Cloud Run/GCP ingests this automatically.
-        handler = StructuredLogHandler()
-        logger.addHandler(handler)
-
-    return logger
-
-logger = build_logger()
+settings = get_settings()
 app = FastAPI(
     title="MKE RAG Query Service",
     description="Embeds a query with Vertex AI and runs a BigQuery vector search.",
@@ -37,13 +53,13 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-    ],
+    allow_origins=_parse_cors_value(
+        settings.cors_origins,
+        ["http://localhost:5173", "http://127.0.0.1:5173"],
+    ),
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=_parse_cors_value(settings.cors_methods, ["*"]),
+    allow_headers=_parse_cors_value(settings.cors_headers, ["*"]),
 )
 
 TaxKey = Annotated[str, StringConstraints(pattern=r"^\d+$", max_length=10)]
@@ -54,10 +70,21 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
-@app.get("/query", response_model=QueryResponse)
+@app.get("/api/v1/search", response_model=list[AddressSearchResult], dependencies=[Depends(_authorize)])
+def search(
+    q: str = Query(..., min_length=1, max_length=40, description="Address to search for"),
+) -> list[AddressSearchResult]:
+    try:
+        return search_address(q)
+    except GoogleAPIError:
+        logger.exception("BigQuery address search failed")
+        raise HTTPException(status_code=502, detail="Address search failed")
+
+
+@app.get("/api/v1/rag", response_model=QueryResponse, dependencies=[Depends(_authorize)])
 def query(
-    q: str = Query(..., min_length=1, max_length=8192, description="Query string to search for"),
-    taxkeys: list[TaxKey] | None = Query(None, description="Tax keys to include in the search"),
+    q: str = Query(..., min_length=1, max_length=250, description="Question to submit to the RAG"),
+    taxkeys: list[TaxKey] | None = Query(None, max_length=100, description="Tax keys to include in reference to the question"),
 ) -> QueryResponse:
     settings = get_settings()
     limit = settings.default_top_k
@@ -110,17 +137,25 @@ def query(
 
         case RoutingType.STRUCTURED_QUERY:
             try:
-                query, params = generate_property_query(q)
+                query, params = generate_property_query(q, selected_properties)
             except (APIError, RuntimeError, ValueError):
+                logger.exception("Failed to generate structured property query")
                 raise HTTPException(status_code=502, detail="Query generation failed")
 
             try:
                 mprop_rows = execute_property_query(query, params)
             except (GoogleAPIError, ValueError):
+                logger.exception("Failed to execute structured property query")
                 raise HTTPException(status_code=502, detail="Query execution failed")
 
             try:
-                answer = generate_answer(q, [], mprop_rows)
+                answer = generate_answer(
+                    q,
+                    [],
+                    mprop_rows,
+                    structured_query=query,
+                    structured_parameters=params,
+                )
             except (APIError, RuntimeError):
                 logger.exception("Failed to generate answer")
                 raise HTTPException(status_code=502, detail="Answer generation failed")

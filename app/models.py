@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel, Field
 from enum import Enum
 
@@ -21,10 +23,22 @@ class RoutingDecision(BaseModel):
     )
 
 
-class SearchResult(BaseModel):
+class VectorSearchResult(BaseModel):
     id: str | None = None
     content: str | None = None
     distance: float
+
+
+class GeoPoint(BaseModel):
+    latitude: float
+    longitude: float
+
+
+class AddressSearchResult(BaseModel):
+    taxkey: str
+    formatted_address: str
+    distance: int
+    centroid: GeoPoint | None = None
 
 
 class QueryResponse(BaseModel):
@@ -43,17 +57,36 @@ class HydeOrAnswer(BaseModel):
     answer: str = Field(description="This field contains the generated answer if it can be answered only with the provided property data.")
     hyde: str = Field(description="A hypothetical excerpt (HyDE) to be used in vector search if additional documents are required to answer the question.")
 
+class AggregateSpec(BaseModel):
+    function: Literal["count", "min", "max", "avg", "sum", "approx_quantiles"]
+    field: str | None = Field(
+        default=None,
+        description="Allowed field ID; omit for count, which counts rows.",
+    )
+    alias: str = Field(
+        pattern=r"^[A-Za-z_][A-Za-z0-9_]*$",
+        description="Unique descriptive snake_case alias for the result column.",
+    )
+
+
+class FilterSpec(BaseModel):
+    field: str
+    operator: Literal["=", "!=", "<", "<=", ">", ">=", "contains"]
+    value: str | int | float | bool
+
+
 class PropertyQueryPlan(BaseModel):
     select: list[str] = Field(
+        default_factory=list,
         description="Allowed field IDs to return, such as address or building_area"
     )
-    filters: list[dict[str, str | int | float]] = Field(
+    filters: list[FilterSpec] = Field(
         default_factory=list,
         description="Filters using only approved field IDs and operators",
     )
-    aggregate: str | None = Field(
-        default=None,
-        description="One of count, min, max, avg, sum, or null",
+    aggregates: list[AggregateSpec] = Field(
+        default_factory=list,
+        description="One or more aggregate expressions with independent aliases.",
     )
     order_by: str | None = None
     order_direction: str | None = Field(default=None, pattern="^(ASC|DESC)$")

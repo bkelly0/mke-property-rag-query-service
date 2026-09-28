@@ -7,3 +7,4 @@ google-api-core>=2.19.0
 google-cloud-bigquery>=3.25.0
 google-cloud-logging>=3.11.0
 pytest>=8.3.0
+pyjwt[crypto]>=2.15
