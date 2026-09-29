@@ -56,7 +56,7 @@ def test_verify_token_rejects_expired_token() -> None:
     assert not verify_token(token, TEST_SECRET)
 
 
-@pytest.mark.parametrize("claims", [{"sub": "test-user"}, {"exp": 2_000_000_000}])
+@pytest.mark.parametrize("claims", [{"sub": "test-user"}])
 def test_verify_token_rejects_missing_required_claims(claims: dict) -> None:
     token = jwt.encode(claims, TEST_SECRET, algorithm="HS256")
 

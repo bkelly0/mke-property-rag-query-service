@@ -8,6 +8,7 @@ class RetrievalPlan(BaseModel):
     structured_query: bool
     vector_search: bool
     use_hyde: bool
+    reasoning: str
 
 class RoutingType(str, Enum):
     HYDE_VECTOR_SEARCH = "hyde_vector_search"
