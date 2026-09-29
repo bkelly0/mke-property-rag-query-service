@@ -3,6 +3,11 @@ from typing import Literal
 from pydantic import BaseModel, Field
 from enum import Enum
 
+class RetrievalPlan(BaseModel):
+    use_provided_data: bool
+    structured_query: bool
+    vector_search: bool
+    use_hyde: bool
 
 class RoutingType(str, Enum):
     HYDE_VECTOR_SEARCH = "hyde_vector_search"
@@ -44,13 +49,13 @@ class AddressSearchResult(BaseModel):
 class QueryResponse(BaseModel):
     query: str = Field(..., description="The original query string")
     response: str = Field(..., description="Answer generated from the matching chunks")
-    document_ids: list[str] = Field(
+    document_ids: set[str] = Field(
         default_factory=list,
         description="Document IDs for the chunks used to generate the answer",
     )
-    routing: RoutingDecision = Field(
+    plan: RetrievalPlan = Field(
         ...,
-        description="Routing decision based on user prompt",
+        description="Routing plan based on user prompt",
     )
 
 class HydeOrAnswer(BaseModel):
