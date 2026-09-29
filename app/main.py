@@ -160,5 +160,5 @@ def query(
         query=q,
         response=answer,
         document_ids=set([str(row["id"]) for row in vector_search_rows if row.get("id") is not None]),
-        routing=plan,
+        plan=plan,
     )
